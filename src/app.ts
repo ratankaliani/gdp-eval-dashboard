@@ -1,222 +1,212 @@
-import { GDPTask, GDPValDataset, FileExtension, AppState } from './types.js';
+import { AppState } from './types.js';
+import { loadConfig, generateDefaultConfig } from './config.js';
+import { fetchDataset, fetchSampleItem } from './data-loader.js';
+import {
+  renderHeader,
+  renderStats,
+  renderFilters,
+  renderMetadata,
+  renderContent,
+  renderFiles,
+  updateNavigation,
+  showLoading,
+  showError,
+} from './renderer.js';
 
-// Global state
+// Global application state
 const state: AppState = {
-  allTasks: [],
-  filteredTasks: [],
+  config: null,
+  allItems: [],
+  filteredItems: [],
   currentIndex: 0,
-  sectors: new Set<string>(),
-  occupations: new Set<string>(),
+  filterValues: new Map(),
+  activeFilters: new Map(),
+  isLoading: false,
+  error: null,
 };
 
-// DOM elements
-const sectorFilter = document.getElementById('sectorFilter') as HTMLSelectElement;
-const occupationFilter = document.getElementById('occupationFilter') as HTMLSelectElement;
-const prevBtn = document.getElementById('prevBtn') as HTMLButtonElement;
-const nextBtn = document.getElementById('nextBtn') as HTMLButtonElement;
-const randomBtn = document.getElementById('randomBtn') as HTMLButtonElement;
-const currentTaskNum = document.getElementById('currentTaskNum') as HTMLElement;
-const taskCounter = document.getElementById('taskCounter') as HTMLElement;
-const sectorEl = document.getElementById('sector') as HTMLElement;
-const occupationEl = document.getElementById('occupation') as HTMLElement;
-const taskIdEl = document.getElementById('taskId') as HTMLElement;
-const promptEl = document.getElementById('prompt') as HTMLElement;
-const fileListEl = document.getElementById('fileList') as HTMLElement;
-const referenceFilesSection = document.getElementById('referenceFilesSection') as HTMLElement;
-
 /**
- * Load the GDP Val dataset from JSON file
+ * Initialize the application
  */
-async function loadData(): Promise<void> {
+async function init(): Promise<void> {
+  showLoading('Loading configuration...');
+
   try {
-    const response = await fetch('gdpval_data.json');
-    const data: GDPValDataset = await response.json();
-    state.allTasks = data.tasks;
-    state.filteredTasks = [...state.allTasks];
+    // Load config from URL params or config file
+    const { config, datasetId } = await loadConfig();
 
-    // Extract unique sectors and occupations
-    state.allTasks.forEach((task: GDPTask) => {
-      state.sectors.add(task.sector);
-      state.occupations.add(task.occupation);
+    if (!datasetId) {
+      showError('No dataset specified. Add ?dataset=owner/name to the URL.');
+      return;
+    }
+
+    // If no config, we need to auto-generate one
+    let finalConfig = config;
+    if (!finalConfig) {
+      showLoading('Analyzing dataset schema...');
+      const sample = await fetchSampleItem(datasetId);
+      if (!sample) {
+        showError('Failed to fetch dataset sample.');
+        return;
+      }
+      finalConfig = generateDefaultConfig(datasetId, sample);
+    }
+
+    state.config = finalConfig;
+
+    // Render initial UI
+    renderHeader(finalConfig);
+
+    // Fetch all data
+    showLoading('Fetching dataset...');
+    state.allItems = await fetchDataset(datasetId, (loaded, total) => {
+      showLoading(`Loading... ${loaded}/${total} items`);
     });
+    state.filteredItems = [...state.allItems];
 
-    // Populate filters
-    populateFilters();
+    // Extract filter values
+    for (const filter of finalConfig.filterFields) {
+      const values = new Set<string>();
+      state.allItems.forEach(item => {
+        const val = item[filter.field];
+        if (val !== null && val !== undefined) {
+          values.add(String(val));
+        }
+      });
+      state.filterValues.set(filter.field, values);
+    }
 
-    // Display first task
-    displayTask(0);
-    updateNavigation();
+    // Render stats and filters
+    renderStats(finalConfig, state.allItems);
+    renderFilters(finalConfig, state.allItems, handleFilterChange);
+
+    // Set up event listeners
+    setupEventListeners();
+
+    // Display first item
+    displayItem(0);
+
   } catch (error) {
-    console.error('Error loading data:', error);
-    promptEl.textContent = 'Error loading tasks. Please make sure gdpval_data.json is in the same directory.';
+    console.error('Initialization error:', error);
+    showError(error instanceof Error ? error.message : 'Unknown error occurred');
   }
 }
 
 /**
- * Populate the sector and occupation filter dropdowns
+ * Display an item at the specified index
  */
-function populateFilters(): void {
-  // Populate sector filter
-  const sortedSectors = Array.from(state.sectors).sort();
-  sortedSectors.forEach((sector: string) => {
-    const option = document.createElement('option');
-    option.value = sector;
-    option.textContent = sector;
-    sectorFilter.appendChild(option);
-  });
+function displayItem(index: number): void {
+  if (!state.config || index < 0 || index >= state.filteredItems.length) return;
 
-  // Populate occupation filter
-  const sortedOccupations = Array.from(state.occupations).sort();
-  sortedOccupations.forEach((occupation: string) => {
-    const option = document.createElement('option');
-    option.value = occupation;
-    option.textContent = occupation;
-    occupationFilter.appendChild(option);
-  });
-}
-
-/**
- * Display a task at the specified index
- */
-function displayTask(index: number): void {
-  if (index < 0 || index >= state.filteredTasks.length) return;
-
-  const task: GDPTask = state.filteredTasks[index];
   state.currentIndex = index;
+  const item = state.filteredItems[index];
 
-  // Update metadata
-  sectorEl.textContent = task.sector;
-  occupationEl.textContent = task.occupation;
-  taskIdEl.textContent = task.task_id;
+  renderMetadata(state.config, item);
+  renderContent(state.config, item);
+  renderFiles(state.config, item);
+  updateNavigation(state);
+}
 
-  // Update prompt
-  promptEl.textContent = task.prompt;
-
-  // Update reference files
-  if (task.reference_file_urls && task.reference_file_urls.length > 0) {
-    referenceFilesSection.style.display = 'block';
-    fileListEl.innerHTML = '';
-
-    task.reference_file_urls.forEach((url: string) => {
-      const fileName = url.split('/').pop() || 'unknown';
-      const fileExt = fileName.split('.').pop()?.toUpperCase() as FileExtension;
-
-      const fileItem = document.createElement('div');
-      fileItem.className = 'file-item';
-
-      const icon = document.createElement('span');
-      icon.className = 'file-icon';
-      icon.textContent = getFileIcon(fileExt);
-
-      const link = document.createElement('a');
-      link.className = 'file-link';
-      link.href = url;
-      link.target = '_blank';
-      link.textContent = fileName;
-
-      fileItem.appendChild(icon);
-      fileItem.appendChild(link);
-      fileListEl.appendChild(fileItem);
-    });
+/**
+ * Handle filter change
+ */
+function handleFilterChange(field: string, value: string): void {
+  if (value) {
+    state.activeFilters.set(field, value);
   } else {
-    referenceFilesSection.style.display = 'none';
+    state.activeFilters.delete(field);
   }
 
-  // Update counter
-  const actualIndex = state.allTasks.findIndex((t: GDPTask) => t.task_id === task.task_id);
-  currentTaskNum.textContent = (actualIndex + 1).toString();
-  taskCounter.textContent = `Task ${state.currentIndex + 1} of ${state.filteredTasks.length}`;
-
-  updateNavigation();
+  applyFilters();
 }
 
 /**
- * Get emoji icon for file extension
- */
-function getFileIcon(ext: FileExtension | undefined): string {
-  if (!ext) return '📎';
-
-  const icons: Record<FileExtension, string> = {
-    'PDF': '📄',
-    'XLSX': '📊',
-    'XLS': '📊',
-    'DOCX': '📝',
-    'DOC': '📝',
-    'PPTX': '📽️',
-    'PPT': '📽️',
-    'TXT': '📃',
-    'CSV': '📈',
-  };
-  return icons[ext] || '📎';
-}
-
-/**
- * Update navigation button states
- */
-function updateNavigation(): void {
-  prevBtn.disabled = state.currentIndex === 0;
-  nextBtn.disabled = state.currentIndex === state.filteredTasks.length - 1;
-}
-
-/**
- * Apply sector and occupation filters
+ * Apply all active filters
  */
 function applyFilters(): void {
-  const selectedSector = sectorFilter.value;
-  const selectedOccupation = occupationFilter.value;
-
-  state.filteredTasks = state.allTasks.filter((task: GDPTask) => {
-    const sectorMatch = !selectedSector || task.sector === selectedSector;
-    const occupationMatch = !selectedOccupation || task.occupation === selectedOccupation;
-    return sectorMatch && occupationMatch;
+  state.filteredItems = state.allItems.filter(item => {
+    for (const [field, value] of state.activeFilters) {
+      if (String(item[field]) !== value) {
+        return false;
+      }
+    }
+    return true;
   });
 
   state.currentIndex = 0;
-  if (state.filteredTasks.length > 0) {
-    displayTask(0);
+
+  if (state.filteredItems.length > 0) {
+    displayItem(0);
   } else {
-    promptEl.textContent = 'No tasks match the selected filters.';
-    referenceFilesSection.style.display = 'none';
+    const promptEl = document.getElementById('prompt');
+    if (promptEl) {
+      promptEl.textContent = 'No items match the selected filters.';
+    }
+    updateNavigation(state);
   }
 }
 
 /**
- * Display a random task from filtered tasks
+ * Navigate to previous item
  */
-function getRandomTask(): void {
-  if (state.filteredTasks.length === 0) return;
-  const randomIndex = Math.floor(Math.random() * state.filteredTasks.length);
-  displayTask(randomIndex);
+function prevItem(): void {
+  if (state.currentIndex > 0) {
+    displayItem(state.currentIndex - 1);
+  }
 }
 
-// Event listeners
-prevBtn.addEventListener('click', () => {
-  if (state.currentIndex > 0) {
-    displayTask(state.currentIndex - 1);
+/**
+ * Navigate to next item
+ */
+function nextItem(): void {
+  if (state.currentIndex < state.filteredItems.length - 1) {
+    displayItem(state.currentIndex + 1);
   }
-});
+}
 
-nextBtn.addEventListener('click', () => {
-  if (state.currentIndex < state.filteredTasks.length - 1) {
-    displayTask(state.currentIndex + 1);
-  }
-});
+/**
+ * Navigate to random item
+ */
+function randomItem(): void {
+  if (state.filteredItems.length === 0) return;
+  const randomIndex = Math.floor(Math.random() * state.filteredItems.length);
+  displayItem(randomIndex);
+}
 
-randomBtn.addEventListener('click', getRandomTask);
+/**
+ * Set up event listeners
+ */
+function setupEventListeners(): void {
+  // Navigation buttons
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const randomBtn = document.getElementById('randomBtn');
 
-sectorFilter.addEventListener('change', applyFilters);
-occupationFilter.addEventListener('change', applyFilters);
+  if (prevBtn) prevBtn.addEventListener('click', prevItem);
+  if (nextBtn) nextBtn.addEventListener('click', nextItem);
+  if (randomBtn) randomBtn.addEventListener('click', randomItem);
 
-// Keyboard navigation
-document.addEventListener('keydown', (e: KeyboardEvent) => {
-  if (e.key === 'ArrowLeft' && state.currentIndex > 0) {
-    displayTask(state.currentIndex - 1);
-  } else if (e.key === 'ArrowRight' && state.currentIndex < state.filteredTasks.length - 1) {
-    displayTask(state.currentIndex + 1);
-  } else if (e.key === 'r' || e.key === 'R') {
-    getRandomTask();
-  }
-});
+  // Keyboard navigation
+  document.addEventListener('keydown', (e: KeyboardEvent) => {
+    // Ignore if typing in an input
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) {
+      return;
+    }
 
-// Initialize
-loadData();
+    switch (e.key) {
+      case 'ArrowLeft':
+        prevItem();
+        break;
+      case 'ArrowRight':
+        nextItem();
+        break;
+      case 'r':
+      case 'R':
+        randomItem();
+        break;
+    }
+  });
+}
+
+// Start the application
+init();

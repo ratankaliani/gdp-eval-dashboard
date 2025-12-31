@@ -1,0 +1,22 @@
+{
+  "dataset": "openai/gdpval",
+  "name": "GDP Val Task Explorer",
+  "description": "Explore OpenAI's GDP Val Benchmark - 220 Professional Tasks",
+  "idField": "task_id",
+  "contentField": "prompt",
+  "metadataFields": [
+    { "field": "sector", "label": "Sector" },
+    { "field": "occupation", "label": "Occupation" },
+    { "field": "task_id", "label": "Task ID", "monospace": true }
+  ],
+  "filterFields": [
+    { "field": "sector", "label": "Sector" },
+    { "field": "occupation", "label": "Occupation" }
+  ],
+  "fileUrlField": "reference_file_urls",
+  "stats": [
+    { "label": "Total Tasks", "type": "count" },
+    { "field": "sector", "label": "Sectors", "type": "unique" },
+    { "field": "occupation", "label": "Occupations", "type": "unique" }
+  ]
+}

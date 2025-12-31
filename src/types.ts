@@ -1,36 +1,88 @@
 /**
- * Represents a single task in the GDP Val dataset
+ * Generic dataset item - represents any row from a HuggingFace dataset
  */
-export interface GDPTask {
-  task_id: string;
-  sector: string;
-  occupation: string;
-  prompt: string;
-  reference_files: string[];
-  reference_file_urls: string[];
-  reference_file_hf_uris: string[];
+export type DatasetItem = Record<string, unknown>;
+
+/**
+ * Metadata field configuration
+ */
+export interface MetadataField {
+  field: string;
+  label: string;
+  monospace?: boolean;
 }
 
 /**
- * The complete GDP Val dataset structure
+ * Filter field configuration
  */
-export interface GDPValDataset {
-  total: number;
-  tasks: GDPTask[];
+export interface FilterField {
+  field: string;
+  label: string;
 }
 
 /**
- * File type icons mapping
+ * Stat configuration
  */
-export type FileExtension = 'PDF' | 'XLSX' | 'XLS' | 'DOCX' | 'DOC' | 'PPTX' | 'PPT' | 'TXT' | 'CSV';
+export interface StatConfig {
+  label: string;
+  type: 'count' | 'unique';
+  field?: string;
+}
 
 /**
- * Application state interface
+ * Dataset configuration - defines how to display a HuggingFace dataset
+ */
+export interface DatasetConfig {
+  // Dataset identity
+  dataset: string;
+  name: string;
+  description: string;
+
+  // Field mappings
+  idField: string;
+  contentField: string;
+
+  // Display configuration
+  metadataFields: MetadataField[];
+  filterFields: FilterField[];
+  fileUrlField?: string;
+  stats: StatConfig[];
+}
+
+/**
+ * Application state
  */
 export interface AppState {
-  allTasks: GDPTask[];
-  filteredTasks: GDPTask[];
+  config: DatasetConfig | null;
+  allItems: DatasetItem[];
+  filteredItems: DatasetItem[];
   currentIndex: number;
-  sectors: Set<string>;
-  occupations: Set<string>;
+  filterValues: Map<string, Set<string>>;
+  activeFilters: Map<string, string>;
+  isLoading: boolean;
+  error: string | null;
 }
+
+/**
+ * HuggingFace API response structure
+ */
+export interface HuggingFaceResponse {
+  features: Array<{
+    feature_idx: number;
+    name: string;
+    type: { dtype: string; _type: string };
+  }>;
+  rows: Array<{
+    row_idx: number;
+    row: DatasetItem;
+    truncated_cells: string[];
+  }>;
+  num_rows_total: number;
+  num_rows_per_page: number;
+  partial: boolean;
+}
+
+/**
+ * File extension type for icon mapping
+ */
+export type FileExtension = 'PDF' | 'XLSX' | 'XLS' | 'DOCX' | 'DOC' | 'PPTX' | 'PPT' | 'TXT' | 'CSV' | 'JSON' | 'PNG' | 'JPG' | 'JPEG';

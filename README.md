@@ -1,33 +1,33 @@
-# GDP Val Task Visualization Website
+# HuggingFace Dataset Explorer
 
-An interactive TypeScript web application to explore and visualize the OpenAI GDP Val benchmark dataset.
+A configurable TypeScript web application to explore and visualize any HuggingFace dataset with a clean, OpenAI-inspired interface.
 
-## About GDP Val
+## Inspiration
 
-GDP Val is a dataset of 220 realistic, professional work scenarios from OpenAI. It contains complex document analysis, data processing, and report generation tasks designed to evaluate AI systems' ability to handle multi-step professional tasks.
+This project was inspired by ["Are you smarter than an LLM?"](https://d.erenrich.net/are-you-smarter-than-an-llm/index.html) - an interactive way to explore AI benchmark questions.
+
+## Motivation
+
+While building a visualizer for the [OpenAI GDP Val benchmark](https://huggingface.co/datasets/openai/gdpval), I realized that the ability to nicely visualize HuggingFace datasets is a blocker towards quick understanding of evals. The default HuggingFace dataset viewer shows raw tables - useful for data scientists, but not for quickly grasping what an eval actually tests.
+
+This tool provides a **task-focused exploration experience** where you can:
+- View one example at a time with full context
+- Filter by dataset-specific dimensions
+- Navigate with keyboard shortcuts
+- Access reference files directly
 
 ## Features
 
-- **Browse all 220 tasks** from the GDP Val dataset
-- **Filter by sector** (9 different sectors) and **occupation** (44 different occupations)
-- **Navigate** between tasks using Previous/Next buttons or arrow keys
-- **Random task** selection for exploration
-- **View task details** including:
-  - Sector and occupation classification
-  - Full task prompt with detailed requirements
-  - Links to all reference files (PDFs, Excel, Word documents, etc.)
-- **Responsive design** that works on desktop and mobile
-- **Dark theme** for comfortable viewing
+- **Browse any HuggingFace dataset** with live API fetching
+- **Configuration-driven** - define which fields to display, filter, and highlight
+- **Filter by any field** in the dataset
+- **Navigate** between items using Previous/Next buttons or arrow keys
+- **Random item** selection for exploration (press 'R')
+- **Reference file links** when datasets include attachments
+- **Responsive design** with clean, minimalist styling
 - **Type-safe** TypeScript implementation
 
-## Getting Started
-
-### Prerequisites
-
-- Node.js (v16 or higher)
-- npm
-
-### Installation
+## Quick Start
 
 ```bash
 # Install dependencies
@@ -35,91 +35,128 @@ npm install
 
 # Build TypeScript
 npm run build
-```
 
-### Running Locally
-
-Due to ES modules and CORS, you need to serve the files with a local server:
-
-```bash
-# Using Python
-python3 -m http.server 8000
-
-# Or using npx
+# Serve locally
 npx serve .
+
+# Open in browser with a dataset
+# http://localhost:3000?dataset=openai/gdpval
 ```
 
-Then open http://localhost:8000 in your browser.
+## Usage
 
-### Development
+### Basic: URL Parameter
 
-```bash
-# Watch mode for TypeScript compilation
-npm run watch
+The simplest way to explore a dataset is via URL parameter:
+
+```
+http://localhost:3000?dataset=openai/gdpval
+```
+
+The explorer will auto-detect fields and create a basic view.
+
+### Advanced: Custom Config
+
+For better control, create a config file in `configs/`:
+
+```json
+{
+  "dataset": "openai/gdpval",
+  "name": "GDP Val Task Explorer",
+  "description": "Explore OpenAI's GDP Val Benchmark - 220 Professional Tasks",
+  "idField": "task_id",
+  "contentField": "prompt",
+  "metadataFields": [
+    { "field": "sector", "label": "Sector" },
+    { "field": "occupation", "label": "Occupation" },
+    { "field": "task_id", "label": "Task ID", "monospace": true }
+  ],
+  "filterFields": [
+    { "field": "sector", "label": "Sector" },
+    { "field": "occupation", "label": "Occupation" }
+  ],
+  "fileUrlField": "reference_file_urls",
+  "stats": [
+    { "label": "Total Items", "type": "count" },
+    { "field": "sector", "label": "Sectors", "type": "unique" },
+    { "field": "occupation", "label": "Occupations", "type": "unique" }
+  ]
+}
+```
+
+Then load it:
+```
+http://localhost:3000?config=gdpval
 ```
 
 ## Navigation
 
-- **Previous/Next buttons**: Navigate through tasks sequentially
-- **Arrow keys**: Use ← and → to move between tasks
-- **Random button**: Jump to a random task (or press 'R')
-- **Filters**: Select a specific sector or occupation to narrow down tasks
-- **Task counter**: Shows your current position in the dataset
-
-### Reference Files
-
-Each task may include reference files (spreadsheets, PDFs, documents). Click on any file link to download it from HuggingFace.
-
-## Dataset Information
-
-- **Total Tasks**: 220
-- **Sectors**: 9 professional sectors
-- **Occupations**: 44 different job roles
-- **Task Complexity**: Moderate to high
-- **Output Formats**: PDF, Excel, Word, PowerPoint, email
+- **Previous/Next buttons**: Navigate through items sequentially
+- **Arrow keys**: Use left/right arrows to move between items
+- **Random button**: Jump to a random item (or press 'R')
+- **Filters**: Select values to narrow down the dataset
+- **Counter**: Shows your current position
 
 ## Project Structure
 
 ```
-gdp-val-website/
+dataset-explorer/
 ├── src/
-│   ├── app.ts          # Main application logic
-│   └── types.ts        # TypeScript type definitions
-├── dist/               # Compiled JavaScript (generated)
-├── index.html          # Main HTML file
-├── style.css           # Styling
-├── gdpval_data.json    # GDP Val dataset (220 tasks)
-├── tsconfig.json       # TypeScript configuration
-├── package.json        # npm configuration
-└── README.md
+│   ├── app.ts            # Main orchestration
+│   ├── types.ts          # TypeScript interfaces
+│   ├── config.ts         # Configuration loading
+│   ├── data-loader.ts    # HuggingFace API integration
+│   └── renderer.ts       # Dynamic UI rendering
+├── configs/
+│   └── gdpval.json       # Example: GDP Val config
+├── dist/                 # Compiled JavaScript
+├── index.html            # HTML template
+├── style.css             # OpenAI-inspired styling
+├── tsconfig.json
+└── package.json
 ```
 
-## Type Definitions
-
-The project includes full TypeScript type definitions for the GDP Val dataset:
+## Configuration Schema
 
 ```typescript
-interface GDPTask {
-  task_id: string;
-  sector: string;
-  occupation: string;
-  prompt: string;
-  reference_files: string[];
-  reference_file_urls: string[];
-  reference_file_hf_uris: string[];
+interface DatasetConfig {
+  dataset: string;           // HuggingFace dataset ID
+  name: string;              // Display title
+  description: string;       // Subtitle
+  idField: string;           // Unique identifier field
+  contentField: string;      // Main content to display
+  metadataFields: Array<{    // Fields shown as metadata
+    field: string;
+    label: string;
+    monospace?: boolean;
+  }>;
+  filterFields: Array<{      // Filterable dimensions
+    field: string;
+    label: string;
+  }>;
+  fileUrlField?: string;     // Field containing file URLs
+  stats: Array<{             // Statistics to compute
+    label: string;
+    type: "count" | "unique";
+    field?: string;
+  }>;
 }
 ```
 
 ## Scripts
 
-- `npm run build` - Compile TypeScript to JavaScript
+- `npm run build` - Compile TypeScript
 - `npm run watch` - Watch mode for development
 - `npm run clean` - Remove compiled files
 
-## Dataset Source
+## Supported Datasets
 
-Data from [OpenAI GDP Val Dataset](https://huggingface.co/datasets/openai/gdpval) on HuggingFace.
+Any public HuggingFace dataset works. Examples:
+- `openai/gdpval` - Professional task benchmark
+- `tatsu-lab/alpaca` - Instruction following
+- `gsm8k` - Math reasoning
+- `squad` - Reading comprehension
 
 ## License
 
-The GDP Val dataset is provided by OpenAI. Please refer to the [HuggingFace dataset page](https://huggingface.co/datasets/openai/gdpval) for licensing information.
+MIT. Dataset licensing varies - check individual HuggingFace dataset pages.
