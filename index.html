@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GDP Val - Task Visualization</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>GDP Val Task Explorer</h1>
+            <p class="subtitle">Explore OpenAI's GDP Val Benchmark - 220 Professional Tasks</p>
+        </header>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="currentTaskNum">1</div>
+                <div class="stat-label">Current Task</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">220</div>
+                <div class="stat-label">Total Tasks</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="sectorCount">9</div>
+                <div class="stat-label">Sectors</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="occupationCount">44</div>
+                <div class="stat-label">Occupations</div>
+            </div>
+        </div>
+
+        <div class="filters">
+            <div class="filter-group">
+                <label for="sectorFilter">Filter by Sector:</label>
+                <select id="sectorFilter">
+                    <option value="">All Sectors</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="occupationFilter">Filter by Occupation:</label>
+                <select id="occupationFilter">
+                    <option value="">All Occupations</option>
+                </select>
+            </div>
+            <button id="randomBtn" class="btn-secondary">Random Task</button>
+        </div>
+
+        <div class="task-display">
+            <div class="task-meta">
+                <div class="meta-item">
+                    <span class="meta-label">Sector:</span>
+                    <span class="meta-value" id="sector">Loading...</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Occupation:</span>
+                    <span class="meta-value" id="occupation">Loading...</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Task ID:</span>
+                    <span class="meta-value task-id" id="taskId">Loading...</span>
+                </div>
+            </div>
+
+            <div class="task-content">
+                <h2>Task Prompt</h2>
+                <div class="prompt-box" id="prompt">
+                    Loading task...
+                </div>
+            </div>
+
+            <div class="reference-files" id="referenceFilesSection" style="display: none;">
+                <h3>Reference Files</h3>
+                <div class="file-list" id="fileList">
+                </div>
+            </div>
+        </div>
+
+        <div class="navigation">
+            <button id="prevBtn" class="btn-nav">← Previous</button>
+            <div class="task-counter">
+                <span id="taskCounter">Task 1 of 220</span>
+            </div>
+            <button id="nextBtn" class="btn-nav">Next →</button>
+        </div>
+
+        <footer>
+            <p>Data from <a href="https://huggingface.co/datasets/openai/gdpval" target="_blank">OpenAI GDP Val Dataset</a></p>
+            <p>GDP Val evaluates AI systems on realistic, professional work scenarios</p>
+        </footer>
+    </div>
+
+    <script type="module" src="dist/app.js"></script>
+</body>
+</html>

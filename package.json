@@ -1,0 +1,17 @@
+{
+  "name": "gdp-val-website",
+  "version": "1.0.0",
+  "description": "An interactive web application to explore and visualize the OpenAI GDP Val benchmark dataset.",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "keywords": ["gdp-val", "openai", "typescript", "benchmark", "visualization"],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}
